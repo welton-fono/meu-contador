@@ -7,14 +7,15 @@ import google.generativeai as genai
 
 # 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE)
 if not firebase_admin._apps:
-    # O arquivo chave.json deve estar no seu GitHub também!
+    # O arquivo chave.json deve estar no seu GitHub!
     cred = credentials.Certificate('chave.json')
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# 2. CONFIGURAÇÃO DA INTELIGÊNCIA ARTIFICIAL (GEMINI)
+# 2. CONFIGURAÇÃO DA INTELIGÊNCIA ARTIFICIAL (GEMINI 1.5 FLASH)
+# A sua chave já está inserida abaixo
 genai.configure(api_key="AIzaSyCPaXbZeFitBZLIjtZMpwheHAdHMq7UYlc")
-model = genai.GenerativeModel('gemini-pro')
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 st.set_page_config(page_title="Contador IA", layout="wide", page_icon="💰")
 st.title("🤖 Meu Assistente Financeiro Inteligente")
@@ -61,32 +62,30 @@ if lista_dados:
     
     with col1:
         st.subheader("📊 Histórico de Movimentações")
-        # Formata a data para ficar mais bonita na tabela
         df['data_formatada'] = pd.to_datetime(df['data']).dt.strftime('%d/%m/%Y %H:%M')
         st.dataframe(df[['data_formatada', 'descricao', 'valor', 'categoria']], use_container_width=True)
     
     with col2:
         st.subheader("💡 Consultoria da IA")
-        st.write("Clique abaixo para que a IA analise seu perfil de gastos atual.")
+        st.write("Clique abaixo para uma análise profissional do seu perfil financeiro.")
         
         if st.button("🤖 Analisar minhas finanças"):
-            # Cria um resumo para a IA entender
+            # Resumo para a IA
             resumo_categorias = df.groupby('categoria')['valor'].sum().to_string()
             
             prompt_ia = f"""
-            Aja como um contador e consultor financeiro expert. 
-            Meus lançamentos atuais são (valores negativos são gastos, positivos são ganhos):
+            Aja como um contador e consultor financeiro. 
+            Meus lançamentos (negativo=gasto, positivo=ganho):
             {resumo_categorias}
             
-            Com base nisso, me dê 3 conselhos curtos e diretos para eu economizar mais, 
-            quitar minhas dívidas e começar a investir. Seja motivador!
+            Dê 3 conselhos diretos para economizar, quitar dívidas e investir. Seja motivador!
             """
             
-            with st.spinner('A IA está analisando seus números...'):
+            with st.spinner('Analisando seus números...'):
                 try:
                     response = model.generate_content(prompt_ia)
                     st.info(response.text)
                 except Exception as e:
                     st.error(f"Erro ao falar com a IA: {e}")
 else:
-    st.info("👋 Bem-vindo! Comece registrando um gasto ou receita na barra lateral para ativar as análises.")
+    st.info("👋 Comece registrando algo na barra lateral para ativar as análises!")
