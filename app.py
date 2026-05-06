@@ -6,7 +6,7 @@ from datetime import datetime
 import google.generativeai as genai
 
 # --- CONFIGURAÇÃO INICIAL ---
-st.set_page_config(page_title="Gestão Financeira VIP", layout="wide", page_icon="🏦")
+st.set_page_config(page_title="Controle Financeiro Total - Welton", layout="wide", page_icon="🏦")
 
 # 1. CONEXÃO COM O BANCO DE DADOS
 if not firebase_admin._apps:
@@ -26,136 +26,108 @@ def excluir_dados(colecao, doc_id):
     db.collection(colecao).document(doc_id).delete()
     st.rerun()
 
-# --- INTERFACE LATERAL (ENTRADAS MANUAIS) ---
+# --- INTERFACE LATERAL (ENTRADAS MANUAIS DETALHADAS) ---
 with st.sidebar:
     st.header("🎛️ Painel de Lançamentos")
     
-    aba_input = st.tabs(["💰 Renda", "💳 Cartões", "📄 Boletos"])
+    aba_input = st.tabs(["💰 Renda/Alimentação", "💳 Cartões", "📄 Boletos/Contas"])
     
     with aba_input[0]:
-        salario = st.number_input("Salário Líquido Mensal", min_value=0.0, format="%.2f")
-        if st.button("Definir Salário"):
-            # Atualiza o salário (usando um ID fixo para apenas um salário por mês)
-            db.collection('configuracoes').document('salario_atual').set({'valor': salario})
-            st.success("Salário atualizado!")
+        st.subheader("Entradas e Reservas")
+        salario = st.number_input("Salário Líquido Mensal", min_value=0.0)
+        reserva_food = st.number_input("Reserva para Alimentação/Foods", min_value=0.0)
+        if st.button("Definir Renda e Foods"):
+            db.collection('configuracoes').document('financeiro').set({
+                'salario': salario,
+                'reserva_food': reserva_food
+            })
+            st.success("Valores atualizados!")
 
     with aba_input[1]:
-        st.subheader("Novo Gasto no Cartão")
+        st.subheader("Faturas de Cartão")
         c_nome = st.text_input("Nome do Cartão (ex: Nubank)")
         c_limite = st.number_input("Limite Total do Cartão", min_value=0.0)
-        c_gasto = st.number_input("Valor da Compra Atual", min_value=0.0)
-        if st.button("Registrar no Cartão"):
+        c_fatura = st.number_input("Valor da Fatura Atual", min_value=0.0)
+        c_parcelas = st.number_input("Parcelas restantes (0 se não houver)", min_value=0)
+        if st.button("Registrar Cartão"):
             salvar_dados('cartoes', {
                 'nome': c_nome.upper(), 
                 'limite': c_limite, 
-                'gasto': c_gasto, 
+                'fatura': c_fatura,
+                'parcelas_faltam': c_parcelas,
                 'data': datetime.now()
             })
             st.rerun()
 
     with aba_input[2]:
-        st.subheader("Novo Boleto")
-        b_nome = st.text_input("Descrição do Boleto")
-        b_valor = st.number_input("Valor do Boleto", min_value=0.0)
+        st.subheader("Boletos e Empréstimos")
+        b_cat = st.selectbox("Tipo de Conta", ["Luz", "Internet", "Faculdade", "Seguro de Vida", "Empréstimo", "Outros"])
+        b_valor = st.number_input("Valor Mensal", min_value=0.0)
+        b_parcelas = st.number_input("Quantas parcelas faltam?", min_value=0)
         b_venc = st.date_input("Data de Vencimento")
-        if st.button("Registrar Boleto"):
+        if st.button("Registrar Conta"):
             salvar_dados('boletos', {
-                'nome': b_nome.upper(), 
+                'categoria': b_cat, 
                 'valor': b_valor, 
+                'parcelas_faltam': b_parcelas,
                 'vencimento': str(b_venc)
             })
             st.rerun()
 
 # --- RECUPERAÇÃO DE DADOS ---
-# Salário
-res_salario = db.collection('configuracoes').document('salario_atual').get()
-salario_val = res_salario.to_dict()['valor'] if res_salario.exists else 0.0
+res_config = db.collection('configuracoes').document('financeiro').get()
+config_dict = res_config.to_dict() if res_config.exists else {'salario': 0.0, 'reserva_food': 0.0}
 
-# Cartões
-cartoes_docs = db.collection('cartoes').stream()
-df_cartoes = pd.DataFrame([dict(d.to_dict(), id=d.id) for d in cartoes_docs])
+df_cartoes = pd.DataFrame([dict(d.to_dict(), id=d.id) for d in db.collection('cartoes').stream()])
+df_boletos = pd.DataFrame([dict(d.to_dict(), id=d.id) for d in db.collection('boletos').stream()])
 
-# Boletos
-boletos_docs = db.collection('boletos').stream()
-df_boletos = pd.DataFrame([dict(d.to_dict(), id=d.id) for d in boletos_docs])
+# --- CÁLCULOS TOTAIS ---
+total_faturas = df_cartoes['fatura'].sum() if not df_cartoes.empty else 0.0
+total_boletos = df_boletos['valor'].sum() if not df_boletos.empty else 0.0
+gastos_totais = total_faturas + total_boletos + config_dict['reserva_food']
+poupanca_mes = config_dict['salario'] - gastos_totais
 
 # --- DASHBOARD PRINCIPAL ---
-st.title("🏦 Dashboard Financeiro Profissional")
+st.title("📑 Controle Financeiro 360º - Welton")
 
-total_boletos = df_boletos['valor'].sum() if not df_boletos.empty else 0.0
-total_gastos_cartao = df_cartoes['gasto'].sum() if not df_cartoes.empty else 0.0
-orcamento_disponivel = salario_val - total_boletos
-
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Salário Líquido", f"R$ {salario_val:,.2f}")
-col2.metric("Total em Boletos", f"R$ {total_boletos:,.2f}")
-col3.metric("Gastos em Cartões", f"R$ {total_gastos_cartao:,.2f}")
-col4.metric("Orçamento Livre", f"R$ {orcamento_disponivel:,.2f}", 
-            delta="Dinheiro na mão" if orcamento_disponivel > 0 else "Alerta!")
+c1, c2, c3, c4 = st.columns(4)
+c1.metric("Salário Líquido", f"R$ {config_dict['salario']:,.2f}")
+c2.metric("Gastos Fixos + Foods", f"R$ {total_boletos + config_dict['reserva_food']:,.2f}")
+c3.metric("Faturas de Cartões", f"R$ {total_faturas:,.2f}")
+# Capacidade de Poupança
+st_cor = "normal" if poupanca_mes > 0 else "inverse"
+c4.metric("CAPACIDADE DE GUARDAR", f"R$ {poupanca_mes:,.2f}", delta=f"{poupanca_mes:,.2f}", delta_color=st_cor)
 
 st.markdown("---")
 
-# --- GRÁFICOS E ANÁLISES ---
-col_graf, col_ia = st.columns([1, 1])
+# --- LISTAGENS E PARCELAMENTOS ---
+col_cartao, col_boleto = st.columns(2)
 
-with col_graf:
-    st.subheader("📊 Distribuição Sugerida (Rosca)")
-    # Dados para o gráfico de rosca baseado na sua sugestão
-    dados_rosca = pd.DataFrame({
-        "Categoria": ["Essenciais (Boletos)", "Variáveis (Cartões)", "Reserva"],
-        "Valor": [total_boletos, total_gastos_cartao, (salario_val * 0.1)]
-    })
-    st.write("Visualização de gastos atuais em relação à meta (60/30/10)")
-    st.bar_chart(dados_rosca.set_index("Categoria"))
-
-with col_ia:
-    st.subheader("🤖 Consultoria IA Extraordinária")
-    if st.button("Gerar Análise Profissional"):
-        prompt = f"""
-        Welton tem renda de R$ {salario_val}. 
-        Gastos em Boletos: R$ {total_boletos}. 
-        Gastos em Cartões: R$ {total_gastos_cartao}.
-        Dê um feedback profissional sobre a regra 60/30/10 e como ele pode melhorar o orçamento.
-        """
-        try:
-            res = model.generate_content(prompt)
-            st.info(res.text)
-        except:
-            st.error("IA temporariamente offline. Tente em 10 segundos.")
-
-st.markdown("---")
-
-# --- LISTAGENS DETALHADAS ---
-st.subheader("📝 Detalhamento de Contas")
-aba_tab1, aba_tab2 = st.tabs(["💳 Cartões de Crédito", "📄 Boletos/Contas"])
-
-with aba_tab1:
+with col_cartao:
+    st.subheader("💳 Faturas e Limites")
     if not df_cartoes.empty:
         for i, row in df_cartoes.iterrows():
-            disponivel = row['limite'] - row['gasto']
-            porcentagem = (row['gasto'] / row['limite']) * 100 if row['limite'] > 0 else 0
-            
-            with st.expander(f"CARTÃO: {row['nome']} | Gasto: R$ {row['gasto']:.2f}"):
-                c_a, c_b, c_c = st.columns(3)
-                c_a.write(f"**Limite Total:** R$ {row['limite']:.2f}")
-                c_b.write(f"**Limite Disponível:** R$ {disponivel:.2f}")
-                c_c.write(f"**Uso:** {porcentagem:.1f}%")
-                st.progress(min(porcentagem/100, 1.0))
-                if st.button(f"Excluir Registro {row['id'][:4]}", key=f"del_c_{row['id']}"):
-                    excluir_dados('cartoes', row['id'])
-    else:
-        st.write("Nenhum cartão cadastrado.")
+            uso = (row['fatura'] / row['limite']) * 100 if row['limite'] > 0 else 0
+            with st.expander(f"CARTÃO {row['nome']} - Fatura R$ {row['fatura']:.2f}"):
+                st.write(f"**Disponível:** R$ {row['limite'] - row['fatura']:.2f}")
+                st.write(f"**Parcelas Restantes:** {row['parcelas_faltam']}")
+                st.progress(min(uso/100, 1.0))
+                if st.button("Apagar", key=f"del_c_{row['id']}"): excluir_dados('cartoes', row['id'])
+    else: st.write("Sem faturas registradas.")
 
-with aba_tab2:
+with col_boleto:
+    st.subheader("📄 Boletos e Parcelamentos")
     if not df_boletos.empty:
-        # Tabela profissional para boletos
-        df_exibir = df_boletos[['nome', 'valor', 'vencimento', 'id']].copy()
-        st.dataframe(df_exibir, use_container_width=True, hide_index=True)
-        
-        # Opção de exclusão individual
-        sel_boleto = st.selectbox("Selecione um boleto para remover se necessário:", df_boletos['nome'].unique())
-        id_para_deletar = df_boletos[df_boletos['nome'] == sel_boleto]['id'].values[0]
-        if st.button("🗑️ Apagar Boleto Selecionado"):
-            excluir_dados('boletos', id_para_deletar)
-    else:
-        st.write("Nenhum boleto pendente.")
+        for i, row in df_boletos.iterrows():
+            with st.expander(f"{row['categoria']} - R$ {row['valor']:.2f}"):
+                st.write(f"**Vencimento:** {row['vencimento']}")
+                st.write(f"**Parcelas Faltando:** {row['parcelas_faltam']}")
+                if st.button("Apagar", key=f"del_b_{row['id']}"): excluir_dados('boletos', row['id'])
+    else: st.write("Sem boletos registrados.")
+
+# --- ANÁLISE IA ---
+st.markdown("---")
+if st.button("🤖 Gerar Análise de Controle Total"):
+    prompt = f"Renda {config_dict['salario']}. Boletos {total_boletos}. Cartões {total_faturas}. Reserva Food {config_dict['reserva_food']}. Poupando {poupanca_mes}. Analise minha saúde financeira."
+    res = model.generate_content(prompt)
+    st.info(res.text)
