@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "meucontadoria",
+  "private_key_id": "0d136341f1ade1702fe90e1c006950cfc18a3b40",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCywbOm1hnvOiWr\neGanl82RrvnihuEfspX4SfAekvgtk7ZUd4LeC2JCxEHGuJuXLNHR/SyA1rV8Rgdq\naq0flQwAU5PttLlpSSuuViuil7E96bDx+GC23xkafVqoaUGOi5IJuKxY1GxI09kG\nLr1IAPJS/FMbK5XMNApy+Gd4UuKUu4VC78PtqUdq0INDl4KG5ves1mR9uHP6ACTL\nJahX8ykA6T0pTd3uItZoocEorljppLJvvIDxKZNzQORXzwXa+zI3AMjjCXHDZPHd\n5i+nUPrDVlIs0eh9Q/DO+ctLHPJ32rh9oKBSaWK5fR2wLMP8Gs7qCVXn9YvFIs2i\ncgF2vsZPAgMBAAECggEAF58kiAnHjZGyg/vkx4V2OH0rL6Br7ri2Zq677gkKhgNS\nAcwf3WBwZgBHQjpc8oI4C+FtLcKxuDAM2ibUpSrDVju1KEv3Kw7smHIcprTC9Y/Z\nvm/4X9IQICxWfDtvL/teRgNDCyNZrS9e1hlREUscD+lLa3i7/SsXV7q0TvXXqUL8\nkfxixveW2vVeT5HfSZXjiA3/GcqrgQzb2vN66yAkcJz9UNCPG+qU/oa7HsdBbJ2G\nGdpuLKgSS+vaGiL0uDvxtBn+xb8GEo3eacojXXMXpbUfRuIZ5+3mkktEt18aWjpm\n9FAkJi1GwHbWAXcUQEC58jclWtRyAfGaWfy0Ex2jWQKBgQDaBmeDaHZ9WAM4XW57\nspn0/8RBzSj19hdBhPlsZfCwqfMGtW0M3FB1N5Al5Th83bmrIyr+gSVkjas3KR4F\ngOEZTiEV0fz36VxuRY+LwaQBGXHzoqRQlwMqlpyvfmcRfYuaetDzYXhza8UhLcSx\n+GR527MJMe6Z5SD67rOET7WQMwKBgQDR5FiUIqJiQxOlvSy8Wp3VhRIAuLnSyDeb\n6XFb+vv4SGpWKqHOhfPkwB44KcL3RnLTcw9B2KRPunjLrcnB2zrwvHa8RHWvhAPk\nzvqL0+gLEhGMIY3JvJ5TsuAMrPBRPziHJ5nQNO+5lLbmAVrJXaJ2RfxzI8ylt4Br\nii5XouGldQKBgBgvebAkGHDTIJhSFP131IhPDxBVl+OhBvdnrtuNe2O9lo359jzk\n+6/lGAJ8KQYA+qW3Yv+Uh/ddl86oqwHlSBMsjZMEFlHR+0ToRoI0WuMcVX23Xw7p\nkZpZ1svI89oG2UOruB4ng9sZ62ZA038ClPLHola0yUkdF8l+TT+yL+vtAoGBALq5\nWTAYC7w9DjqRLD44o1dz9csci3wAULBsokOA6i48RhV4AdDYDFzBqWCvjlormzWP\nk9AxaiPfsV0Js4a5gRrvnvXoNYY6fLhOhkhk8Xb/0QqIQzpoibXOWVINfBHbm29p\nhIXcwjOoIHpIVDr2CPUNWAQaohH/SMji+k1Og02NAoGBAJNq9uHTRhQsJGEM1DCc\nKDnaZ98W55ZirayTl7NDnrELv20yRFeJtJAPgIsq4nDiN2WYTam4Y4aP685j6QsN\njEzlAXSZHfFqPiC7GwyWk63/OEZQBLYnMoawGfiPR5ZU84XctFfApi5GEMWCB7eh\nqapXJCYvLs29IIiyD4TAttpm\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@meucontadoria.iam.gserviceaccount.com",
+  "client_id": "112392448829925044658",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40meucontadoria.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
