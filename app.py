@@ -11,8 +11,7 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# 2. CONFIGURAÇÃO DA IA - CHAMADA DIRETA E ESTÁVEL
-# Usaremos o nome mais básico que o Google aceita para evitar o erro 404
+# 2. CONFIGURAÇÃO DA IA (Ajustada para máxima compatibilidade)
 genai.configure(api_key="AIzaSyCPaXbZeFitBZLIjtZMpwheHAdHMq7UYlc")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
@@ -52,7 +51,7 @@ with st.sidebar:
             st.success("Registrado!")
             st.rerun()
 
-# --- PROCESSAMENTO ---
+# --- PROCESSAMENTO DOS DADOS ---
 docs = db.collection('orcamento_welton').order_by('data', direction=firestore.Query.DESCENDING).stream()
 dados = [d.to_dict() for d in docs]
 
@@ -65,6 +64,7 @@ if dados:
     gasto_r = df[df['tipo'] == "Gasto"]['real'].sum()
     saldo = receita_total - gasto_r
 
+    # Dashboard
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Renda Real", f"R$ {receita_total:,.2f}")
     c2.metric("Planejado", f"R$ {gasto_p:,.2f}")
@@ -77,18 +77,16 @@ if dados:
 
     # --- IA ---
     st.markdown("---")
+    st.subheader("💡 Consultoria Financeira")
     if st.button("🤖 Pedir Conselho à IA"):
-        # Filtramos apenas o que é gasto real para a IA não se perder
         resumo = df[df['tipo'] == "Gasto"].groupby('categoria')[['planejado', 'real']].sum().to_string()
-        
-        prompt = f"Analise meu orçamento: {resumo}. Renda: {receita_total}. Me dê 3 dicas para economizar e investir."
+        prompt = f"Como um contador, analise meu orçamento: {resumo}. Minha renda é {receita_total}. Me dê 3 dicas práticas."
         
         with st.spinner('Analisando...'):
             try:
-                # Tentativa de resposta direta
                 response = model.generate_content(prompt)
                 st.info(response.text)
-            except:
-                st.error("A IA do Google está demorando a responder. Tente clicar de novo em 10 segundos.")
+            except Exception as e:
+                st.error("O serviço de IA está reiniciando. Tente novamente em 15 segundos.")
 else:
     st.info("Cadastre algo para começar!")
