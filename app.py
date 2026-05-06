@@ -15,105 +15,105 @@ db = firestore.client()
 genai.configure(api_key="AIzaSyCPaXbZeFitBZLIjtZMpwheHAdHMq7UYlc")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-st.set_page_config(page_title="Orçamento Mensal Welton", layout="wide")
+st.set_page_config(page_title="Contador Welton - VIP", layout="wide")
 
-# --- CABEÇALHO ESTILO EXCEL ---
-st.title("📊 Orçamento Pessoal Mensal")
+# --- ESTILIZAÇÃO ---
+st.title("🏦 Sistema de Gestão Financeira Welton")
 st.markdown("---")
 
-# 3. FUNÇÃO PARA SALVAR
-def salvar_transacao(desc, valor_p, valor_r, cat, tipo):
-    db.collection('orcamento_welton').document().set({
-        'data': datetime.now(),
-        'descricao': desc.upper(),
-        'planejado': float(valor_p),
-        'real': float(valor_r),
-        'categoria': cat,
-        'tipo': tipo
-    })
+# 3. FUNÇÕES DE BANCO DE DADOS
+def salvar_item(colecao, dados):
+    db.collection(colecao).document().set(dados)
 
-# --- BARRA LATERAL PARA ENTRADA ---
+# --- SIDEBAR: ENTRADA DE DADOS ---
 with st.sidebar:
-    st.header("➕ Novo Lançamento")
-    tipo = st.selectbox("Tipo", ["Gasto", "Receita"])
-    cat = st.selectbox("Categoria (Grupo)", [
-        "Moradia", "Entretenimento", "Transporte", 
-        "Alimentação", "Saúde", "Educação", "Seguro", "Investimentos", "Renda"
-    ])
-    desc = st.text_input("Descrição (Ex: Aluguel, Cinema)")
-    col_p, col_r = st.columns(2)
-    val_p = col_p.number_input("Estimado (R$)", min_value=0.0)
-    val_r = col_r.number_input("Real (R$)", min_value=0.0)
-    
-    if st.button("Gravar na Planilha"):
-        if desc:
-            salvar_transacao(desc, val_p, val_r, cat, tipo)
-            st.success("Gravado!")
+    st.header("⚙️ Lançamentos")
+    menu = st.radio("O que deseja registrar?", ["Salário/Receita", "Boleto/Conta Fixa", "Gasto no Cartão", "Configurar Cartão"])
+
+    if menu == "Salário/Receita":
+        val = st.number_input("Valor Líquido (R$)", min_value=0.0)
+        if st.button("Registrar Salário"):
+            salvar_item('financas_welton', {'tipo': 'Receita', 'valor': val, 'data': datetime.now(), 'cat': 'Salário'})
+            st.success("Salário atualizado!")
+
+    elif menu == "Boleto/Conta Fixa":
+        desc = st.text_input("Descrição do Boleto")
+        val = st.number_input("Valor (R$)", min_value=0.0)
+        venc = st.date_input("Vencimento")
+        if st.button("Salvar Boleto"):
+            salvar_item('financas_welton', {'tipo': 'Boleto', 'desc': desc, 'valor': val, 'venc': str(venc), 'status': 'Pendente'})
+            st.rerun()
+
+    elif menu == "Gasto no Cartão":
+        cartao = st.selectbox("Selecione o Cartão", ["Cartão 1", "Cartão 2", "Cartão 3", "Cartão 4", "Cartão 5"])
+        desc = st.text_input("O que comprou?")
+        val = st.number_input("Valor da Compra (R$)", min_value=0.0)
+        if st.button("Registrar Compra"):
+            salvar_item('financas_welton', {'tipo': 'Gasto_Cartao', 'cartao': cartao, 'desc': desc, 'valor': val, 'data': datetime.now()})
             st.rerun()
 
 # --- BUSCA DE DADOS ---
-docs = db.collection('orcamento_welton').order_by('data', direction=firestore.Query.DESCENDING).stream()
+docs = db.collection('financas_welton').stream()
 dados = [d.to_dict() for d in docs]
+df = pd.DataFrame(dados) if dados else pd.DataFrame()
 
-if dados:
-    df = pd.DataFrame(dados)
+if not df.empty:
+    # --- CÁLCULOS GERAIS ---
+    receita = df[df['tipo'] == 'Receita']['valor'].sum()
+    boletos = df[df['tipo'] == 'Boleto']['valor'].sum()
+    gastos_cartao = df[df['tipo'] == 'Gasto_Cartao']['valor'].sum()
     
-    # Cálculos Totais (Igual ao Topo da sua Planilha)
-    renda_total = df[df['tipo'] == "Receita"]['real'].sum()
-    gasto_p_total = df[df['tipo'] == "Gasto"]['planejado'].sum()
-    gasto_r_total = df[df['tipo'] == "Gasto"]['real'].sum()
-    
-    saldo_previsto = renda_total - gasto_p_total
-    saldo_real = renda_total - gasto_r_total
-    diferenca_total = saldo_real - saldo_previsto
+    orcamento_livre = receita - boletos - gastos_cartao
 
-    # --- RESUMO FINANCEIRO (DASHBOARD) ---
-    c1, c2, c3 = st.columns(3)
-    c1.metric("Saldo Previsto", f"R$ {saldo_previsto:,.2f}")
-    c2.metric("Saldo Real", f"R$ {saldo_real:,.2f}")
-    c3.metric("Diferença Total", f"R$ {diferenca_total:,.2f}", delta=f"{diferenca_total:,.2f}")
+    # --- DASHBOARD PRINCIPAL ---
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Salário Líquido", f"R$ {receita:,.2f}")
+    c2.metric("Total em Boletos", f"R$ {boletos:,.2f}", delta_color="inverse")
+    c3.metric("Gastos em Cartões", f"R$ {gastos_cartao:,.2f}")
+    c4.metric("ORÇAMENTO DISPONÍVEL", f"R$ {orcamento_livre:,.2f}", delta="Pode gastar" if orcamento_livre > 0 else "Estourado")
 
     st.markdown("---")
 
-    # --- LAYOUT DE TABELAS POR GRUPO (IGUAL AO EXCEL) ---
-    categorias = ["Moradia", "Entretenimento", "Transporte", "Alimentação", "Saúde", "Educação", "Investimentos"]
+    # --- SEÇÃO DE CARTÕES (GRID) ---
+    st.subheader("💳 Meus Cartões de Crédito")
+    cols_cartoes = st.columns(5)
+    for i in range(1, 6):
+        nome_c = f"Cartão {i}"
+        with cols_cartoes[i-1]:
+            gasto_c = df[(df['tipo'] == 'Gasto_Cartao') & (df['cartao'] == nome_c)]['valor'].sum()
+            st.info(f"**{nome_c}**")
+            st.write(f"Gasto: R$ {gasto_c:,.2f}")
+            # Simulando um limite de 2000 por cartão para exemplo
+            progresso = min(gasto_c / 2000, 1.0) if gasto_c > 0 else 0.0
+            st.progress(progresso)
+
+    # --- TABELAS ESTILO EXCEL ---
+    col_esq, col_dir = st.columns(2)
     
-    # Criamos colunas para colocar as tabelas lado a lado
-    cols = st.columns(2)
-    
-    for i, categoria in enumerate(categorias):
-        target_col = cols[i % 2] # Alterna entre coluna 1 e 2
-        
-        with target_col:
-            st.subheader(f"📍 {categoria}")
-            df_cat = df[df['categoria'] == categoria].copy()
+    with col_esq:
+        st.subheader("📑 Boletos Pendentes")
+        df_bol = df[df['tipo'] == 'Boleto']
+        if not df_bol.empty:
+            st.table(df_bol[['desc', 'valor', 'venc']])
             
-            if not df_cat.empty:
-                df_cat['Diferença'] = df_cat['planejado'] - df_cat['real']
-                st.dataframe(
-                    df_cat[['descricao', 'planejado', 'real', 'Diferença']], 
-                    hide_index=True, 
-                    use_container_width=True
-                )
-                
-                # Subtotal por categoria
-                sub_p = df_cat['planejado'].sum()
-                sub_r = df_cat['real'].sum()
-                st.caption(f"**Subtotal {categoria}:** Planejado R$ {sub_p:.2f} | Real R$ {sub_r:.2f}")
-            else:
-                st.write("*Nenhum lançamento*")
-            st.write("") # Espaçamento
+    with col_dir:
+        st.subheader("🛒 Últimas Compras (Cartão)")
+        df_compras = df[df['tipo'] == 'Gasto_Cartao']
+        if not df_compras.empty:
+            st.dataframe(df_compras[['cartao', 'desc', 'valor']], hide_index=True)
 
-    # --- CONSULTORIA IA ---
+    # --- IA ANALISTA ---
     st.markdown("---")
-    if st.button("🤖 Analisar como Contador"):
-        resumo = df[df['tipo'] == "Gasto"].groupby('categoria')[['planejado', 'real']].sum().to_string()
-        prompt = f"Analise meu orçamento estilo planilha: {resumo}. Renda: {renda_total}. Dê 3 dicas para o saldo real subir."
-        with st.spinner('Lendo tabelas...'):
-            try:
-                res = model.generate_content(prompt)
-                st.info(res.text)
-            except:
-                st.error("Erro na IA. Tente de novo.")
+    if st.button("🤖 Gerar Consultoria do Mês"):
+        prompt = f"""
+        Sou o Welton. Minha renda é {receita}. 
+        Tenho {boletos} em boletos e gastei {gastos_cartao} nos cartões.
+        Sobrou {orcamento_livre}. 
+        Me dê um plano real para eu não usar mais do que 30% da minha renda em cartões.
+        """
+        with st.spinner("Analisando seus 5 cartões..."):
+            res = model.generate_content(prompt)
+            st.write(res.text)
+
 else:
-    st.info("Sua planilha está vazia! Adicione o primeiro item na lateral.")
+    st.warning("Aguardando os primeiros lançamentos para montar seu painel.")
