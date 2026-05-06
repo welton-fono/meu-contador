@@ -5,87 +5,96 @@ import pandas as pd
 from datetime import datetime
 import google.generativeai as genai
 
-# 1. CONEXÃO COM O BANCO DE DADOS (FIREBASE)
+# 1. CONEXÃO COM O BANCO DE DADOS
 if not firebase_admin._apps:
-    # O arquivo chave.json deve estar no seu GitHub!
     cred = credentials.Certificate('chave.json')
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# 2. CONFIGURAÇÃO DA INTELIGÊNCIA ARTIFICIAL (GEMINI 1.5 FLASH)
-# A sua chave já está inserida abaixo
+# 2. CONFIGURAÇÃO DA IA (GEMINI 1.5 FLASH)
 genai.configure(api_key="AIzaSyCPaXbZeFitBZLIjtZMpwheHAdHMq7UYlc")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-st.set_page_config(page_title="Contador IA", layout="wide", page_icon="💰")
-st.title("🤖 Meu Assistente Financeiro Inteligente")
+st.set_page_config(page_title="Orçamento Estilo Welton", layout="wide", page_icon="📊")
 
-# 3. FUNÇÃO PARA SALVAR NO BANCO
-def salvar_gasto(descricao, valor, categoria, tipo):
-    doc_ref = db.collection('transacoes').document()
-    doc_ref.set({
+# --- ESTILIZAÇÃO TIPO PLANILHA ---
+st.title("📑 Orçamento Pessoal Mensal")
+st.markdown("---")
+
+# 3. FUNÇÃO PARA SALVAR
+def salvar_transacao(desc, valor_p, valor_r, cat, tipo):
+    db.collection('orcamento_welton').document().set({
         'data': datetime.now(),
-        'descricao': descricao,
-        'valor': valor,
-        'categoria': categoria,
+        'descricao': desc,
+        'planejado': valor_p,
+        'real': valor_r,
+        'categoria': cat,
         'tipo': tipo
     })
 
-# --- INTERFACE LATERAL (ENTRADA DE DADOS) ---
+# --- SIDEBAR: ENTRADA DE DADOS ---
 with st.sidebar:
-    st.header("📋 Novo Lançamento")
-    desc = st.text_input("O que você pagou ou recebeu?")
-    valor = st.number_input("Valor (R$)", min_value=0.0, step=0.50)
+    st.header("➕ Novo Lançamento")
     tipo = st.selectbox("Tipo", ["Gasto", "Receita"])
-    cat = st.selectbox("Categoria", ["Dívida", "Alimentação", "Lazer", "Investimento", "Salário", "Saúde", "Outros"])
+    cat = st.selectbox("Categoria", [
+        "Casa (Aluguel/Luz)", "Transporte", "Alimentação", 
+        "Lazer/Entretenimento", "Saúde", "Educação", "Salário", "Investimentos"
+    ])
+    desc = st.text_input("Descrição (Ex: Aluguel, Supermercado)")
     
-    if st.button("Registrar no Banco de Dados"):
-        if desc and valor > 0:
-            v_final = -valor if tipo == "Gasto" else valor
-            salvar_gasto(desc, v_final, cat, tipo)
-            st.success("✅ Registrado com sucesso!")
+    col_p, col_r = st.columns(2)
+    val_p = col_p.number_input("Planejado (R$)", min_value=0.0)
+    val_r = col_r.number_input("Real (R$)", min_value=0.0)
+    
+    if st.button("📊 Registrar no Orçamento"):
+        if desc:
+            salvar_transacao(desc, val_p, val_r, cat, tipo)
+            st.success("Registrado!")
         else:
-            st.warning("Preencha a descrição e o valor!")
+            st.error("Coloque uma descrição!")
 
-# --- PAINEL PRINCIPAL (ANÁLISE E HISTÓRICO) ---
-docs = db.collection('transacoes').order_by('data', direction=firestore.Query.DESCENDING).stream()
-lista_dados = [d.to_dict() for d in docs]
+# --- PROCESSAMENTO DOS DADOS ---
+docs = db.collection('orcamento_welton').order_by('data', direction=firestore.Query.DESCENDING).stream()
+dados = [d.to_dict() for d in docs]
 
-if lista_dados:
-    df = pd.DataFrame(lista_dados)
+if dados:
+    df = pd.DataFrame(dados)
     
-    # Resumo Rápido
-    saldo_atual = df['valor'].sum()
-    st.metric("Saldo Geral em Conta", f"R$ {saldo_atual:,.2f}")
+    # Cálculos Totais (Estilo Planilha Welton)
+    total_planejado = df[df['tipo'] == "Gasto"]['planejado'].sum()
+    total_real = df[df['tipo'] == "Gasto"]['real'].sum()
+    diferenca = total_planejado - total_real
+    renda_real = df[df['tipo'] == "Receita"]['real'].sum()
+
+    # --- DASHBOARD SUPERIOR ---
+    c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Renda Real", f"R$ {renda_real:,.2f}")
+    c2.metric("Gastos Planejados", f"R$ {total_planejado:,.2f}")
+    c3.metric("Gastos Reais", f"R$ {total_real:,.2f}")
+    # Delta positivo em gastos é bom (gastou menos que o planejado)
+    c4.metric("Diferença (Economia)", f"R$ {diferenca:,.2f}", delta=f"{diferenca:,.2f}")
+
+    st.markdown("### 📋 Detalhamento por Categoria")
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("📊 Histórico de Movimentações")
-        df['data_formatada'] = pd.to_datetime(df['data']).dt.strftime('%d/%m/%Y %H:%M')
-        st.dataframe(df[['data_formatada', 'descricao', 'valor', 'categoria']], use_container_width=True)
-    
-    with col2:
-        st.subheader("💡 Consultoria da IA")
-        st.write("Clique abaixo para uma análise profissional do seu perfil financeiro.")
-        
-        if st.button("🤖 Analisar minhas finanças"):
-            # Resumo para a IA
-            resumo_categorias = df.groupby('categoria')['valor'].sum().to_string()
-            
-            prompt_ia = f"""
-            Aja como um contador e consultor financeiro. 
-            Meus lançamentos (negativo=gasto, positivo=ganho):
-            {resumo_categorias}
-            
-            Dê 3 conselhos diretos para economizar, quitar dívidas e investir. Seja motivador!
-            """
-            
-            with st.spinner('Analisando seus números...'):
-                try:
-                    response = model.generate_content(prompt_ia)
-                    st.info(response.text)
-                except Exception as e:
-                    st.error(f"Erro ao falar com a IA: {e}")
+    # Tabela formatada
+    df_exibicao = df.copy()
+    df_exibicao['Diferença'] = df_exibicao['planejado'] - df_exibicao['real']
+    st.dataframe(df_exibicao[['categoria', 'descricao', 'planejado', 'real', 'Diferença']], use_container_width=True)
+
+    # --- CONSULTORIA DA IA ---
+    st.markdown("---")
+    st.subheader("💡 Análise do Consultor IA")
+    if st.button("🤖 Gerar Relatório de Performance"):
+        resumo = df.groupby('categoria')[['planejado', 'real']].sum().to_string()
+        prompt = f"""
+        Baseado no meu orçamento mensal:
+        {resumo}
+        Minha renda real foi de R$ {renda_real}.
+        Aja como um contador. Analise em quais categorias eu estourou o limite planejado e 
+        me dê um plano de ação para sobrar mais dinheiro no próximo mês.
+        """
+        with st.spinner('Analisando planilhas...'):
+            res = model.generate_content(prompt)
+            st.info(res.text)
 else:
-    st.info("👋 Comece registrando algo na barra lateral para ativar as análises!")
+    st.info("Sua planilha está vazia. Comece registrando seus gastos planejados e reais na lateral!")
