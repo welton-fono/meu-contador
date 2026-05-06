@@ -15,105 +15,105 @@ db = firestore.client()
 genai.configure(api_key="AIzaSyCPaXbZeFitBZLIjtZMpwheHAdHMq7UYlc")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
-st.set_page_config(page_title="Contador Welton - VIP", layout="wide")
+st.set_page_config(page_title="Gestão Financeira Welton", layout="wide")
 
-# --- ESTILIZAÇÃO ---
-st.title("🏦 Sistema de Gestão Financeira Welton")
-st.markdown("---")
-
-# 3. FUNÇÕES DE BANCO DE DADOS
+# --- FUNÇÕES DE CONTROLE (SALVAR E APAGAR) ---
 def salvar_item(colecao, dados):
     db.collection(colecao).document().set(dados)
 
+def apagar_item(colecao, doc_id):
+    db.collection(colecao).document(doc_id).delete()
+    st.rerun()
+
+st.title("📑 Meu Contador Pessoal - Welton")
+st.markdown("---")
+
 # --- SIDEBAR: ENTRADA DE DADOS ---
 with st.sidebar:
-    st.header("⚙️ Lançamentos")
-    menu = st.radio("O que deseja registrar?", ["Salário/Receita", "Boleto/Conta Fixa", "Gasto no Cartão", "Configurar Cartão"])
+    st.header("⚙️ Painel de Controle")
+    opcao = st.selectbox("O que deseja fazer?", ["Resumo Geral", "Gerenciar Cartões", "Gerenciar Boletos", "Registrar Salário"])
 
-    if menu == "Salário/Receita":
-        val = st.number_input("Valor Líquido (R$)", min_value=0.0)
-        if st.button("Registrar Salário"):
-            salvar_item('financas_welton', {'tipo': 'Receita', 'valor': val, 'data': datetime.now(), 'cat': 'Salário'})
-            st.success("Salário atualizado!")
+    if opcao == "Registrar Salário":
+        val = st.number_input("Valor do Salário Líquido", min_value=0.0)
+        if st.button("Salvar Salário"):
+            salvar_item('financas', {'tipo': 'receita', 'valor': val, 'desc': 'Salário', 'data': datetime.now()})
+            st.success("Salário registrado!")
 
-    elif menu == "Boleto/Conta Fixa":
-        desc = st.text_input("Descrição do Boleto")
-        val = st.number_input("Valor (R$)", min_value=0.0)
-        venc = st.date_input("Vencimento")
-        if st.button("Salvar Boleto"):
-            salvar_item('financas_welton', {'tipo': 'Boleto', 'desc': desc, 'valor': val, 'venc': str(venc), 'status': 'Pendente'})
+    elif opcao == "Gerenciar Cartões":
+        st.subheader("💳 Novo Gasto no Cartão")
+        nome_cartao = st.text_input("Nome do Cartão (ex: Nubank, Black)")
+        item = st.text_input("O que comprou?")
+        valor_c = st.number_input("Valor da Compra", min_value=0.0)
+        if st.button("Registrar no Cartão"):
+            salvar_item('financas', {'tipo': 'cartao', 'nome': nome_cartao.upper(), 'desc': item, 'valor': valor_c, 'data': datetime.now()})
             st.rerun()
 
-    elif menu == "Gasto no Cartão":
-        cartao = st.selectbox("Selecione o Cartão", ["Cartão 1", "Cartão 2", "Cartão 3", "Cartão 4", "Cartão 5"])
-        desc = st.text_input("O que comprou?")
-        val = st.number_input("Valor da Compra (R$)", min_value=0.0)
-        if st.button("Registrar Compra"):
-            salvar_item('financas_welton', {'tipo': 'Gasto_Cartao', 'cartao': cartao, 'desc': desc, 'valor': val, 'data': datetime.now()})
+    elif opcao == "Gerenciar Boletos":
+        st.subheader("🧾 Novo Boleto/Conta")
+        nome_boleto = st.text_input("Nome do Boleto (ex: Aluguel, Internet)")
+        valor_b = st.number_input("Valor do Boleto", min_value=0.0)
+        venc = st.date_input("Data de Vencimento")
+        if st.button("Registrar Boleto"):
+            salvar_item('financas', {'tipo': 'boleto', 'nome': nome_boleto.upper(), 'valor': valor_b, 'venc': str(venc)})
             st.rerun()
 
 # --- BUSCA DE DADOS ---
-docs = db.collection('financas_welton').stream()
-dados = [d.to_dict() for d in docs]
-df = pd.DataFrame(dados) if dados else pd.DataFrame()
+docs = db.collection('financas').stream()
+lista_dados = []
+for d in docs:
+    item = d.to_dict()
+    item['id'] = d.id  # Pegamos o ID para poder apagar depois
+    lista_dados.append(item)
+
+df = pd.DataFrame(lista_dados) if lista_dados else pd.DataFrame()
 
 if not df.empty:
-    # --- CÁLCULOS GERAIS ---
-    receita = df[df['tipo'] == 'Receita']['valor'].sum()
-    boletos = df[df['tipo'] == 'Boleto']['valor'].sum()
-    gastos_cartao = df[df['tipo'] == 'Gasto_Cartao']['valor'].sum()
-    
-    orcamento_livre = receita - boletos - gastos_cartao
+    # --- CÁLCULOS ---
+    salario = df[df['tipo'] == 'receita']['valor'].sum()
+    total_boletos = df[df['tipo'] == 'boleto']['valor'].sum()
+    total_cartao = df[df['tipo'] == 'cartao']['valor'].sum()
+    sobra = salario - total_boletos - total_cartao
 
-    # --- DASHBOARD PRINCIPAL ---
+    # --- DASHBOARD SUPERIOR ---
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Salário Líquido", f"R$ {receita:,.2f}")
-    c2.metric("Total em Boletos", f"R$ {boletos:,.2f}", delta_color="inverse")
-    c3.metric("Gastos em Cartões", f"R$ {gastos_cartao:,.2f}")
-    c4.metric("ORÇAMENTO DISPONÍVEL", f"R$ {orcamento_livre:,.2f}", delta="Pode gastar" if orcamento_livre > 0 else "Estourado")
+    c1.metric("Salário", f"R$ {salario:,.2f}")
+    c2.metric("Total Boletos", f"R$ {total_boletos:,.2f}")
+    c3.metric("Total Cartões", f"R$ {total_cartao:,.2f}")
+    c4.metric("Disponível", f"R$ {sobra:,.2f}", delta="Saldo Livre")
 
     st.markdown("---")
 
-    # --- SEÇÃO DE CARTÕES (GRID) ---
-    st.subheader("💳 Meus Cartões de Crédito")
-    cols_cartoes = st.columns(5)
-    for i in range(1, 6):
-        nome_c = f"Cartão {i}"
-        with cols_cartoes[i-1]:
-            gasto_c = df[(df['tipo'] == 'Gasto_Cartao') & (df['cartao'] == nome_c)]['valor'].sum()
-            st.info(f"**{nome_c}**")
-            st.write(f"Gasto: R$ {gasto_c:,.2f}")
-            # Simulando um limite de 2000 por cartão para exemplo
-            progresso = min(gasto_c / 2000, 1.0) if gasto_c > 0 else 0.0
-            st.progress(progresso)
+    # --- LISTAGEM COM OPÇÃO DE APAGAR ---
+    col1, col2 = st.columns(2)
 
-    # --- TABELAS ESTILO EXCEL ---
-    col_esq, col_dir = st.columns(2)
-    
-    with col_esq:
-        st.subheader("📑 Boletos Pendentes")
-        df_bol = df[df['tipo'] == 'Boleto']
-        if not df_bol.empty:
-            st.table(df_bol[['desc', 'valor', 'venc']])
-            
-    with col_dir:
-        st.subheader("🛒 Últimas Compras (Cartão)")
-        df_compras = df[df['tipo'] == 'Gasto_Cartao']
-        if not df_compras.empty:
-            st.dataframe(df_compras[['cartao', 'desc', 'valor']], hide_index=True)
+    with col1:
+        st.subheader("💳 Gastos por Cartão")
+        df_c = df[df['tipo'] == 'cartao']
+        if not df_c.empty:
+            for _, row in df_c.iterrows():
+                with st.expander(f"🛒 {row['nome']} - R$ {row['valor']:.2f}"):
+                    st.write(f"Item: {row['desc']}")
+                    if st.button(f"🗑️ Apagar {row['id'][:5]}", key=row['id']+"c"):
+                        apagar_item('financas', row['id'])
+        else: st.write("Nenhum cartão registrado.")
 
-    # --- IA ANALISTA ---
+    with col2:
+        st.subheader("🧾 Boletos a Pagar")
+        df_b = df[df['tipo'] == 'boleto']
+        if not df_b.empty:
+            for _, row in df_b.iterrows():
+                with st.expander(f"📄 {row['nome']} - R$ {row['valor']:.2f}"):
+                    st.write(f"Vencimento: {row['venc']}")
+                    if st.button(f"🗑️ Apagar {row['id'][:5]}", key=row['id']+"b"):
+                        apagar_item('financas', row['id'])
+        else: st.write("Nenhum boleto registrado.")
+
+    # --- CONSULTORIA IA ---
     st.markdown("---")
-    if st.button("🤖 Gerar Consultoria do Mês"):
-        prompt = f"""
-        Sou o Welton. Minha renda é {receita}. 
-        Tenho {boletos} em boletos e gastei {gastos_cartao} nos cartões.
-        Sobrou {orcamento_livre}. 
-        Me dê um plano real para eu não usar mais do que 30% da minha renda em cartões.
-        """
-        with st.spinner("Analisando seus 5 cartões..."):
-            res = model.generate_content(prompt)
-            st.write(res.text)
+    if st.button("🤖 Analisar Finanças"):
+        prompt = f"Welton tem R$ {salario} de renda. Boletos: {total_boletos}. Cartões: {total_cartao}. Dê um conselho curto."
+        res = model.generate_content(prompt)
+        st.info(res.text)
 
 else:
-    st.warning("Aguardando os primeiros lançamentos para montar seu painel.")
+    st.info("Comece registrando seu salário e gastos na barra lateral!")
