@@ -16,9 +16,8 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
-# 2. CONFIGURAÇÃO DA IA
-# ---> APAGUE O TEXTO ABAIXO E COLE A SUA CHAVE NOVA DENTRO DAS ASPAS <---
-genai.configure(api_key="COLE_SUA_NOVA_CHAVE_AQUI")
+# 2. CONFIGURAÇÃO DA IA COM A CHAVE NOVA
+genai.configure(api_key="AIzaSyCSCgcZYaU8wvCSeZgSlTPgIwJjcjOUjNo")
 model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- FUNÇÕES DE BANCO DE DADOS ---
