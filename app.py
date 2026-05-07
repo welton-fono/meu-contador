@@ -4,14 +4,13 @@ from firebase_admin import credentials, firestore
 import pandas as pd
 from datetime import datetime, timedelta
 import google.generativeai as genai
-import json  # <--- NOVA FERRAMENTA PARA LER O SECRET
+import json
 
 # --- CONFIGURAÇÃO INICIAL ---
 st.set_page_config(page_title="Welton Bank - Gestão Total", layout="wide", page_icon="🏦")
 
 # 1. CONEXÃO COM O BANCO DE DADOS (AGORA USANDO SECRETS BLINDADOS)
 if not firebase_admin._apps:
-    # Ele puxa a senha lá da aba Secrets do Streamlit
     key_dict = json.loads(st.secrets["firebase_key"])
     cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
@@ -141,7 +140,6 @@ if menu == "📊 Visão Geral":
             except:
                 st.error("Erro ao conectar com a IA. Tente em instantes.")
 
-
 # ==========================================
 # MÓDULO 2: ENTRADAS E DESPESAS DIÁRIAS
 # ==========================================
@@ -179,7 +177,6 @@ elif menu == "💸 Entradas e Despesas":
             sel_g = st.selectbox("Apagar Despesa", df_gastos['id'])
             if st.button("🗑️ Excluir Despesa Selecionada"): excluir_dados('gastos_diarios', sel_g)
 
-
 # ==========================================
 # MÓDULO 3: CARTÕES DE CRÉDITO
 # ==========================================
@@ -212,7 +209,6 @@ elif menu == "💳 Meus Cartões":
             if st.button("🗑️ Excluir Cartão", key=row['id']): excluir_dados('cartoes_vip', row['id'])
             st.divider()
 
-
 # ==========================================
 # MÓDULO 4: BOLETOS E FIXAS
 # ==========================================
@@ -235,7 +231,6 @@ elif menu == "📄 Boletos e Fixas":
         st.dataframe(df_boletos[['categoria', 'nome', 'valor', 'vencimento', 'parcelas']], hide_index=True, use_container_width=True)
         sel_b = st.selectbox("Apagar Boleto", df_boletos['id'], format_func=lambda x: df_boletos.loc[df_boletos['id'] == x, 'nome'].values[0])
         if st.button("🗑️ Excluir Boleto"): excluir_dados('boletos_vip', sel_b)
-
 
 # ==========================================
 # MÓDULO 5: INVESTIMENTOS E METAS
