@@ -4,13 +4,16 @@ from firebase_admin import credentials, firestore
 import pandas as pd
 from datetime import datetime, timedelta
 import google.generativeai as genai
+import json  # <--- NOVA FERRAMENTA PARA LER O SECRET
 
 # --- CONFIGURAÇÃO INICIAL ---
 st.set_page_config(page_title="Welton Bank - Gestão Total", layout="wide", page_icon="🏦")
 
-# 1. CONEXÃO COM O BANCO DE DADOS
+# 1. CONEXÃO COM O BANCO DE DADOS (AGORA USANDO SECRETS BLINDADOS)
 if not firebase_admin._apps:
-    cred = credentials.Certificate('chave.json')
+    # Ele puxa a senha lá da aba Secrets do Streamlit
+    key_dict = json.loads(st.secrets["firebase_key"])
+    cred = credentials.Certificate(key_dict)
     firebase_admin.initialize_app(cred)
 db = firestore.client()
 
