@@ -1,4 +1,5 @@
-streamlit==1.34.0
+streamlit
 pandas
-firebase-admin==6.5.0
-google-generativeai==0.5.2
+firebase-admin
+google-generativeai
+st-firestore-connection
